@@ -1,0 +1,64 @@
+
+```yaml
+name: Download pgRouting ARM64 DEBs
+
+on:
+  workflow_dispatch:
+    inputs:
+      postgresql_version:
+        description: 'PostgreSQL Version'
+        required: true
+        default: '12'
+        type: string
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Update apt and setup PGDG
+        run: |
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4ED8.asc | sudo apt-key add -
+          echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+      
+      - name: Create package directory
+        run: mkdir -p pgrouting-arm64-offline
+      
+      - name: Download all packages
+        run: |
+          cd pgrouting-arm64-offline
+          
+          PG_VERSION="${{ github.event.inputs.postgresql_version || '12' }}"
+          
+          echo "Downloading PostgreSQL $PG_VERSION on ARM64..."
+          
+          sudo apt-get download \
+            postgresql-$PG_VERSION \
+            postgresql-server-dev-$PG_VERSION \
+            postgresql-client-$PG_VERSION \
+            postgresql-$PG_VERSION-common \
+            postgresql-$PG_VERSION-postgis-3 \
+            postgresql-$PG_VERSION-postgis-scripts \
+            postgresql-$PG_VERSION-pgrouting \
+            postgis \
+            postgis-bin \
+            libpostgis-jsts-${PG_VERSION} \
+            libgeos-c1v5 \
+            libproj19 \
+            libsfcgal1 \
+            libgdal25
+      
+      - name: Verify and create archive
+        run: |
+          tar -czvf pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz pgrouting-arm64-offline/
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64-offline
+          path: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz
+          retention-days: 7
+```
