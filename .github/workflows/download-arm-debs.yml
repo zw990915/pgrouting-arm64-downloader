@@ -54,7 +54,7 @@ jobs:
           tar -czvf pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz pgrouting-arm64-offline/
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64-offline
           path: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz
