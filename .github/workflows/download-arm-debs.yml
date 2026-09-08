@@ -18,8 +18,8 @@ jobs:
       
       - name: Update apt and setup PGDG
         run: |
-          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4ED8.asc | sudo apt-key add -
-          echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4ED8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql-archive.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql-archive.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
       
       - name: Create package directory
