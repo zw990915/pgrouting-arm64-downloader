@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       postgresql_version:
-        description: 'PostgreSQL Version (e.g., 12, 13, 14)'
+        description: 'PostgreSQL Version (12 recommended)'
         required: true
         default: '12'
         type: string
@@ -17,79 +17,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
       
-      - name: Update apt and setup PGDG repository
+      - name: Setup PGDG repository
         run: |
+          # Use the official PGDG script which handles everything
+          curl https://www.postgresql.org/media/keys/ACCC4ED8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql-archive.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql-archive.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
-          
-          # Add PostgreSQL GPG key using modern method
-          wget -qO- https://www.postgresql.org/media/keys/ACCC4ED8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
-          
-          # Add PGDG repository with signed-by option
-          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list > /dev/null
-          
-          # Update package lists
-          sudo apt-get update -y
-          echo "PGDG repository configured successfully!"
       
       - name: Create package directory
-        run: |
-          mkdir -p pgrouting-arm64-offline
-          ls -la
+        run: mkdir -p pgrouting-arm64-offline
       
-      - name: Download all required packages
+      - name: Download packages
         run: |
           cd pgrouting-arm64-offline
           
-          # Get version from input or use default
-          PG_VERSION="${{ github.event.inputs.postgresql_version || '12' }}"
+          VERSION="${{ github.event.inputs.postgresql_version || '12' }}"
           
-          echo "Downloading PostgreSQL $PG_VERSION + extensions on Ubuntu..."
+          echo "Downloading PostgreSQL $VERSION packages..."
           
+          # Try to download all packages in one command
           sudo apt-get download \
-            postgresql-$PG_VERSION \
-            postgresql-server-dev-$PG_VERSION \
-            postgresql-client-$PG_VERSION \
-            postgresql-$PG_VERSION-common \
-            postgresql-$PG_VERSION-postgis-3 \
-            postgresql-$PG_VERSION-postgis-scripts \
-            postgresql-$PG_VERSION-pgrouting \
+            postgresql-$VERSION \
+            postgresql-server-dev-$VERSION \
+            postgresql-client-$VERSION \
+            postgresql-$VERSION-common \
+            postgresql-$VERSION-postgis-3 \
+            postgresql-$VERSION-pgrouting \
             postgis \
-            postgis-bin \
-            libpostgis-jsts-${PG_VERSION} \
             libgeos-c1v5 \
-            libproj19 \
-            libsfcgal1 \
-            libgdal25 \
-            || sudo apt-get download \
-            postgresql-12 \
-            postgresql-server-dev-12 \
-            postgresql-client-12 \
-            postgresql-12-common \
-            postgresql-12-postgis-3 \
-            postgresql-12-postgis-scripts \
-            postgresql-12-pgrouting \
-            postgis \
-            postgis-bin \
-            libpostgis-jsts-3 \
-            libgeos-c1v5 \
-            libproj19 \
-            libsfcgal1 \
-            libgdal25
+            libgdal25 || {
+              echo "First attempt failed, trying with fallback names..."
+              sudo apt-get download \
+                postgresql-12 \
+                postgresql-server-dev-12 \
+                postgresql-client-12 \
+                postgresql-12-common \
+                postgis-3 \
+                postgresql-12-pgrouting \
+                postgis-bin \
+                libgeos-c1v5 \
+                libgdal25
+            }
       
-      - name: List downloaded packages
+      - name: Create tarball
         run: |
-          ls -lh pgrouting-arm64-offline/*.deb
-          echo "Total packages: $(find pgrouting-arm64-offline -name '*.deb' | wc -l)"
-      
-      - name: Create compressed archive
-        run: |
-          tar -czvf pgrouting-arm64.tar.gz pgrouting-arm64-offline/
-          ls -lh pgrouting-arm64.tar.gz
+          tar -czvf pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz pgrouting-arm64-offline/
+          ls -lh pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pgrouting-arm64-offline-packages
-          path: pgrouting-arm64.tar.gz
+          name: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64-offline
+          path: pgrouting-${{ github.event.inputs.postgresql_version || '12' }}-arm64.tar.gz
           retention-days: 7
-          compression-level: 6
